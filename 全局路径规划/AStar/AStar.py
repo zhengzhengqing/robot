@@ -7,7 +7,6 @@ import time
 # 初始化 Pygame
 pygame.init()
 
-
 class AStar:
     def __init__(self):
         
@@ -34,6 +33,7 @@ class AStar:
         # 创建一个表示网格的二维数组
         self.grid = [[self.white for _ in range(self.width // self.grid_size)] for _ in range(self.hight // self.grid_size)]
         self.generate_obstacles(self.level)
+        #self.generate_circle_obstacles()
         self.thread1 = threading.Thread(target=self.work)
         self.thread1.start()
 
@@ -62,6 +62,7 @@ class AStar:
         col = int(node[1]) # 列
         neighbors = []     # 保存临时的相邻方格, [["x","y", g ]]
         obstacles = []     # 保存相邻方格中的障碍物 [["x", "y"]]
+        
 
         """
             查看该索引相邻的8个点, x 为可通行方格， o为障碍物
@@ -86,10 +87,6 @@ class AStar:
                     obstacles.append([str(i) , str(j)])
                     continue
 
-                # 找到目标点
-                if self.is_goal(i, j):
-                    return True , node
-
                 # 左上角， 右下角， 左下角， 右上角
                 if (i < row and j < col) or (i > row and j > col) or (i > row and j < col) or (i < row and j > col):
                     neighbor = [str(i) , str(j), g_value + 14]
@@ -98,35 +95,48 @@ class AStar:
                     neighbor = [str(i) , str(j), g_value + 10]
                     neighbors.append(neighbor)
 
+        indices_to_remove = []
         # # 遍历障碍物
-        # for obstacle in obstacles:
-        #     if (int(obstacle[0]) == row -1) and (int(obstacle[1]) == col):   # 障碍物在该点的正上方, 把左上角，右上角方格剔除
-        #         for j in [col -1, col +1]:
-        #             # 遍历相邻点
-        #             for index in range(len(neighbors)):
-        #                 if obstacle[0] == index[0] and str(j) == index[1]:
-        #                     del neighbors[index]
-        #     elif (int(obstacle[0]) == row +1) and (int(obstacle[1]) == col): # 障碍物在该点的正下方， 把左右两侧的方格剔除
-        #         for j in [col -1, col +1]:
-        #             # 遍历相邻点
-        #             for index in range(len(neighbors)):
-        #                 if obstacle[0] == index[0] and str(j) == index[1]:
-        #                     del neighbors[index]
-        #     elif (int(obstacle[0]) == row) and (int(obstacle[1]) == col -1): # 障碍物在该点的左侧， 左上角和左下角方格剔除
-        #         for i in [row -1, row +1]:
-        #             # 遍历相邻点
-        #             for index in range(len(neighbors)):
-        #                 if str(i) == index[0] and  obstacle[1] == index[1]:
-        #                     del neighbors[index]
-        #     elif (int(obstacle[0]) == row) and (int(obstacle[1]) == col +1): # 障碍物在该点的右侧， 右上角和右下角方格剔除
-        #         for i in [row -1, row +1]:
-        #             # 遍历相邻点
-        #             for index in range(len(neighbors)):
-        #                 if str(i) == index[0] and  obstacle[1] == index[1]:
-        #                     del neighbors[index]
+        for obstacle in obstacles:
+            if (int(obstacle[0]) == row -1) and (int(obstacle[1]) == col):   # 障碍物在该点的正上方, 把左上角，右上角方格剔除
+                for j in [col -1, col +1]:
+                    # 遍历相邻点
+                    for index in range(len(neighbors)):
+                        if obstacle[0] == neighbors[index][0] and str(j) == neighbors[index][1]:
+                            indices_to_remove.append(index)
+                            
+            elif (int(obstacle[0]) == row +1) and (int(obstacle[1]) == col): # 障碍物在该点的正下方， 把左右两侧的方格剔除
+                for j in [col -1, col +1]:
+                    # 遍历相邻点
+                    for index in range(len(neighbors)):
+                        if obstacle[0] == neighbors[index][0] and str(j) == neighbors[index][1]:
+                            indices_to_remove.append(index)
+                            
+            elif (int(obstacle[0]) == row) and (int(obstacle[1]) == col -1): # 障碍物在该点的左侧， 左上角和左下角方格剔除
+                for i in [row -1, row +1]:
+                    # 遍历相邻点
+                    for index in range(len(neighbors)):
+                        if str(i) == neighbors[index][0] and  obstacle[1] == neighbors[index][1]:
+                            indices_to_remove.append(index)
+                           
+            elif (int(obstacle[0]) == row) and (int(obstacle[1]) == col +1): # 障碍物在该点的右侧， 右上角和右下角方格剔除
+                for i in [row -1, row +1]:
+                    # 遍历相邻点
+                    for index in range(len(neighbors)):
+                        if str(i) == neighbors[index][0] and  obstacle[1] == neighbors[index][1]:
+                            indices_to_remove.append(index)
+                           
+        indices_to_remove = list(set(indices_to_remove))
+        for index in reversed(indices_to_remove):
+            del neighbors[index]    
                 
         # 遍历周围的方格
         for index in neighbors:
+
+            # 是否找到目标点
+            if self.is_goal(index):
+                return True , node
+
             result, g_value, num = self.is_in_open_list(index)
 
             if result: # 已存在, 判断是否有更小的g值
@@ -141,11 +151,20 @@ class AStar:
                 self.add_in_open_list(index)
                 self.set_father_list(index, node)
                 self.rendering_grid(index) # 渲染方格
-        #print(self.g_value_list)
+                time.sleep(0.01)
+       
         # 对open_list 重新排序
         self.open_list = sorted(self.open_list, key=lambda x: x[2])
-        #self.set_g_value(index)
         return False, None
+    
+    def generate_circle_obstacles(self):
+        for i in range(20,40):
+            self.grid[10][i] = self.black
+            self.grid[20][i] = self.black
+        
+        for i in range(10,20):
+            self.grid[i][20] = self.black
+            self.grid[i][39] = self.black
 
     def is_in_close_list(self, x, y): #[{"13":"12"}]
         for dictionary in self.closed_list:
@@ -162,7 +181,7 @@ class AStar:
         return False , None, None
 
     def get_h_value(self, index):
-        return abs(int(index[0]) - self.end[0])  + abs(int(index[1]) - self.end[1])
+        return abs(int(index[0]) - self.end[0])*10  + abs(int(index[1]) - self.end[1])*10
     
     def set_g_value(self, index):
         for i in range(len(self.g_value_list)):
@@ -171,7 +190,6 @@ class AStar:
                 return
              
         self.g_value_list.append([index[0], index[1], index[2]])
-
     
     def rendering_grid(self, index):
         x = int(index[0])
@@ -224,13 +242,15 @@ class AStar:
         while True:
             if node[0] == str(self.start[0]) and node[1] == str(self.start[1]): # 起点
                 return
-
+            
             self.grid[int(node[0])][int(node[1])] = self.green
             for item in self.father_list:
                 if item[0] == node[0] and item[1] == node[1]:
                     node.clear()
                     node.append(item[2])
                     node.append(item[3])
+                    #print(item)
+                    break
 
     def work(self):
         while(self.running):
@@ -253,12 +273,13 @@ class AStar:
                         if self.order == 1:
                             self.start.append(grid_y)
                             self.start.append(grid_x)
+                            self.grid[grid_y][grid_x] = self.blue
                         elif self.order == 2:
                             self.end.append(grid_y)
                             self.end.append(grid_x)
-                            
+                            self.grid[grid_y][grid_x] = self.red
                         # 更改对应栅格的颜色为蓝色
-                        self.grid[grid_y][grid_x] = self.blue
+                        
                         self.order +=1
 
             if self.order == 3:
@@ -283,8 +304,8 @@ class AStar:
     def is_obstacle(self, x, y):
         return self.grid[x][y] == self.black
     
-    def is_goal(self, x, y):
-        return x == self.end[0] and y == self.end[1]
+    def is_goal(self,index):
+        return int(index[0]) == self.end[0] and int(index[1]) == self.end[1]
 
     def draw_grid(self):
         # 根据二维数组绘制方格颜色
@@ -322,7 +343,6 @@ class AStar:
                 
             # 重新绘制栅格
             self.draw_grid()
-            time.sleep(0.05)
             # 刷新显示
             pygame.display.flip()
         

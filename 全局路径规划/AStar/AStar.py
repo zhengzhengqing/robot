@@ -11,7 +11,7 @@ class AStar:
     def __init__(self):
         
         self.initialize()
-        self.level = 2
+        self.level = 3
         self.width = 1200
         self.hight = 800
         self.grid_size = 20
@@ -32,8 +32,7 @@ class AStar:
 
         # 创建一个表示网格的二维数组
         self.grid = [[self.white for _ in range(self.width // self.grid_size)] for _ in range(self.hight // self.grid_size)]
-        self.generate_obstacles(self.level)
-        #self.generate_circle_obstacles()
+        self.add_obstacles(self.level)
         self.thread1 = threading.Thread(target=self.work)
         self.thread1.start()
 
@@ -157,6 +156,16 @@ class AStar:
         self.open_list = sorted(self.open_list, key=lambda x: x[2])
         return False, None
     
+    def add_obstacles(self, level):
+        if level == 1:
+            self.generate_circle_obstacles()
+        elif level == 2:
+            self.generate_simple_obstacles()
+        elif level == 3:
+            self.generate_obstacles()
+        elif level == 4:
+            self.generate_one_simple_obstacles()
+            
     def generate_circle_obstacles(self):
         for i in range(20,40):
             self.grid[10][i] = self.black
@@ -165,7 +174,16 @@ class AStar:
         for i in range(10,20):
             self.grid[i][20] = self.black
             self.grid[i][39] = self.black
-
+    
+    def generate_two_simple_obstacles(self):
+        for i in range(10,20):
+            self.grid[i][20] = self.black
+            self.grid[i][39] = self.black
+    
+    def generate_one_simple_obstacles(self):
+        for i in range(10,20):
+            self.grid[i][30] = self.black
+            
     def is_in_close_list(self, x, y): #[{"13":"12"}]
         for dictionary in self.closed_list:
             for key, value in dictionary.items():
@@ -226,7 +244,11 @@ class AStar:
 
         while len(self.open_list) > 0:
             tem_dic = {}
-            current_node = self.open_list.pop(0) 
+
+            # lasted_index = self.get_lasted_index()
+            # current_node = self.open_list.pop(lasted_index)
+           
+            current_node = self.open_list.pop(0)
             tem_dic[current_node[0]] = current_node[1]
             self.closed_list.append(tem_dic)   
 
@@ -237,6 +259,13 @@ class AStar:
                 return True
             
         return False
+    
+    def get_lasted_index(self):
+        for i in range(len(self.open_list)):
+            if i == len(self.open_list) - 1:
+                return i
+            elif self.open_list[i][2] != self.open_list[i+1][2]:
+                return i 
 
     def rendering_path(self, node):
         while True:
@@ -296,7 +325,7 @@ class AStar:
                             return 
                         elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 3:   
                             self.grid = [[self.white for _ in range(self.width // self.grid_size)] for _ in range(self.hight // self.grid_size)]
-                            self.generate_obstacles(self.level)
+                            self.add_obstacles(self.level)
                             self.initialize()
                             jump = True
                             
@@ -320,16 +349,8 @@ class AStar:
         for y in range(0, self.hight, self.grid_size):
             pygame.draw.line(self.screen, self.black, (0, y), (self.width, y))
 
-    def generate_obstacles(self, level):
-        if level == 0:
-            num_obstacles = 0
-        elif level == 1:
-            num_obstacles = 50
-        elif level == 2:
-            num_obstacles = 100
-        else:
-            num_obstacles = 150
-        
+    def generate_obstacles(self):
+        num_obstacles = 150
         for i in range(num_obstacles):
             obstacle = (random.randint(0, self.rows-1), random.randint(0, self.columns-1))
             self.grid[obstacle[0]][obstacle[1]] = self.black

@@ -5,6 +5,9 @@ import matplotlib.pyplot as plt
 import copy
 from celluloid import Camera
 import math
+import threading
+import time
+
 
 def KinematicModel(state,control,dt):
     """机器人运动学模型
@@ -58,14 +61,17 @@ class Config:
         self.beta = 1.0
         self.gamma = 1.0
 
+        self.left_or_right = False # false 表示左移
+        self.up_or_down = False # false  表示上移
+
         # Also used to check if goal is reached in both types
         self.robot_radius = 1.0 # [m] for collision check
 
         self.judge_distance = 10 # 若与障碍物的最小距离大于阈值（例如这里设置的阈值为robot_radius+0.2）,则设为一个较大的常值
 
         # 障碍物位置 [x(m) y(m), ....]
-        self.ob = np.array([[-1, -1],
-                    [0, 2],
+        self.ob = np.array([[-1.0, -1.0],
+                    [0, 2.0],
                     [4.0, 2.0],
                     [5.0, 4.0],
                     [5.0, 5.0],
@@ -82,7 +88,41 @@ class Config:
                     ])
         
         # 目标点位置
-        self.target = np.array([10,10])
+        self.target = np.array([10,15])
+
+        # 创建线程
+        thread1 = threading.Thread(target=self.update_location)
+        #thread1.start()
+
+    def update_location(self):
+        # 每隔0.1秒中，跟新一下障碍物的位置，使障碍物上下或者左右启动
+        while True:
+            for i in range(len(self.ob)):
+                if i  == 2:  # 偶数索引，上下移动  % 2
+                    if self.ob[i][1] >= 15.0:
+                        self.up_or_down = True
+                    elif self.ob[i][1] <= -1.0:
+                        self.up_or_down = False
+                    
+                    if self.up_or_down:
+                        self.ob[i][1] -= 0.05
+                    else:
+                        self.ob[i][1] += 0.05
+
+                if i == 4:
+                  # 奇数索引，左右移动
+                    if self.ob[i][0] >= 15.0:
+                        self.left_or_right = False
+                    elif self.ob[i][0] <= -1.0:
+                        self.left_or_right = True
+
+                    if self.left_or_right:
+                        self.ob[i][0] += 0.1
+                    else:
+                        self.ob[i][0] -= 0.1
+            
+            time.sleep(0.1)
+        
 
 class DWA:
     def __init__(self, config):
@@ -217,11 +257,13 @@ class DWA:
             _type_: 最优控制量、最优轨迹
         """
 
-        G_max = -float('inf') # 最有评价
+        G_max = -float('inf') # 最优评价
         trajectory_opt = state # 最优轨迹
         control_opt = [0,0] # 最优控制
 
-        dynamic_window_vel = self.cal_dynamic_window_vel(state[3], state[4], state, obstacle) # 第一步计算速度空间
+        # 第一步计算速度空间
+        dynamic_window_vel = self.cal_dynamic_window_vel(state[3], state[4], state, obstacle) 
+        
         # sum_heading,sum_dist,sum_vel = 0,0,0 # 统计全部采样轨迹的各个评价之和，便于评价的归一化
         # # 在本次实验中，不进行归一化也可实现该有的效果。
         # for v in np.arange(dynamic_window_vel[0],dynamic_window_vel[1],self.v_sample):
@@ -288,7 +330,7 @@ class DWA:
         dx = trajectory[:, 0] - ox[:, None]
         dy = trajectory[:, 1] - oy[:, None]
         r = np.hypot(dx, dy)
-        return np.min(r) if np.array(r <self.radius+0.2).any() else self.judge_distance
+        return np.min(r) if np.array(r <self.radius+0.5).any() else self.judge_distance
 
     def __heading(self, trajectory, goal):
         """方位角评价函数
@@ -331,20 +373,23 @@ def plot_robot(x, y, yaw, config):  # pragma: no cover
                         np.array([np.cos(yaw), np.sin(yaw)]) * config.robot_radius)
         plt.plot([x, out_x], [y, out_y], "-k")
 
-def main(config):
+def main():
     # initial state [x(m), y(m), yaw(rad), v(m/s), omega(rad/s)]
-    x = np.array([0.0, 0.0, math.pi / 8.0, 0.0, 0.0])
+    x = np.array([0.0, 0.0, math.pi / 8.0, 0.0, 0.0]) # 初始的状态
     # goal position [x(m), y(m)]
+    config = Config()
     goal = config.target
 
     # input [forward speed, yaw_rate]
 
     trajectory = np.array(x)
-    ob = config.ob
+   
     dwa = DWA(config)
     fig=plt.figure(1)
     camera = Camera(fig)
     while True:
+        ob = config.ob # 所有的障碍物
+        # 返回速度信息 和最优轨迹
         u, predicted_trajectory = dwa.dwa_control(x,goal, ob)
 
         x = KinematicModel(x, u, config.dt)  # simulate robot
@@ -360,7 +405,7 @@ def main(config):
         plt.plot(ob[:, 0], ob[:, 1], "ok")
         plot_robot(x[0], x[1], x[2], config)
         plot_arrow(x[0], x[1], x[2])
-        plt.axis("equal")
+        #plt.axis("equal")
         plt.grid(True)
         plt.pause(0.001)
 
@@ -383,4 +428,4 @@ def main(config):
 
 
 if __name__ == '__main__':
-    main(Config())
+    main()

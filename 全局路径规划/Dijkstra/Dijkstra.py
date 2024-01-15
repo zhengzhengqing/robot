@@ -11,7 +11,7 @@ class Dijkstra:
     def __init__(self):
         
         self.initialize()
-        self.level = 3
+        self.level = 1
         self.width = 1200
         self.hight = 800
         self.grid_size = 20
@@ -152,7 +152,7 @@ class Dijkstra:
         if level == 1:
             self.generate_circle_obstacles()
         elif level == 2:
-            self.generate_simple_obstacles()
+            self.generate_two_simple_obstacles()
         elif level == 3:
             self.generate_obstacles()
         elif level == 4:

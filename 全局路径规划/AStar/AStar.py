@@ -160,7 +160,7 @@ class AStar:
         if level == 1:
             self.generate_circle_obstacles()
         elif level == 2:
-            self.generate_simple_obstacles()
+            self.generate_two_simple_obstacles()
         elif level == 3:
             self.generate_obstacles()
         elif level == 4:
